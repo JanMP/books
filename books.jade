@@ -7,6 +7,7 @@ body
 template(name='layout')  
   header
     +navbar
+  +autoformModals
   #banner.hero-unit
     .container
       h1
@@ -36,37 +37,9 @@ template(name='navbar')
         ul.nav.navbar-nav.navbar-right
           if currentUser
             li
-              a(href='/my-books') my books
+              a(href='/messages') messages
+            li
           +loginButtons
-
-template(name='books')
-  .container-fluid
-    .row
-      .col-lg-12
-        h1.page-header books:
-          +afModal(class="btn btn-default pull-right" collection="Books" operation="insert")
-            i.fa.fa-plus
-            | &nbsp; add book
-        +autoformModals
-        div
-          each books
-            +bookDisplay
-
-template(name='bookDisplay')
-  .col-lg-3.col-md-4.col-sm-6
-    .panel.card(class=panelClass)
-      .panel-heading
-        h3 #{title}
-      .panel-body
-        h4 by #{author}
-        if requested
-          p requested by: #{requestedBy}
-        else
-          p available
-      .panel-footer
-        button.btn.btn-default.request-button(disabled=mayNotRequest)
-          i.fa.fa-hand-pointer-o
-          | request
 
 template(name='about')
   .container
@@ -75,13 +48,132 @@ template(name='about')
         h1.page-header about books:
         if currentUser
           p.
-            Hello #{currentUser.username}, since you are logged in you have access to all features of this web-app. You can list books that you own and would like to share with other users, and you can request to borrow books, that other users have listed.
+            Hello #{currentUser.username}, since you are logged in you have access to all features 
+            of this web-app. You can list books that you own and would like to share with other users, 
+            and you can request to borrow books, that other users have listed.
         else
           p.
-            Hello, books is all about sharing the books you love with other users. You can browse all the books, that other users have listed. Once you are logged in, you can click on a book, to ask it's owner to share it with you, and you can share your own books with other users this way.
+            Hello, books is all about sharing the books you love with other users. You can browse all 
+            the books, that other users have listed. Once you are logged in, you can click on a book, to 
+            ask it's owner to share it with you, and you can share your own books with other users this way.
         div
           p.
-            This website is a practice assignment for freeCodeCamp. As such it is not really meant to be usefull to anyone. Since it's a work in progress it may or may not work on any given day.
+            This website is a practice assignment for freeCodeCamp (or rather: it's the Meteor version of an
+            assignment for the MEAN stack). As such it is not really meant to be usefull 
+            to anyone. Since it's a work in progress it may or may not work on any given day. The functionality
+            that the practice assignment calls for only covers the first part of the sharing process. It does not
+            specify what should happen after the owner agrees to give the book to the person making the request.
+            Even the trading part is marked as a bonus user story. So, for now we stop after reaching an agreement
+            and the status of the book is set from "accepted" back to "available" after 2 minutes.
 
           p.
-            You can take a look at the sources and post comments#[a(href='http://github.com/JanMP/books') on gitHub]
+            There are 2 things still missing: The assignment calls for user settings for full name and mailing address.
+            Since this is never used in the assignment or the example application, I decided to leave that out for now.
+            The other thing missing is the book covers. It's not in the user stories, but that's more interesting to
+            to implement than that mailing address. So I'll do that next.
+
+          p.
+            This app really is about communication. So when you check it out, make sure you log in with two different
+            accounts and check out the interaction between those 2 users. Unlike the reference app in the assignment,
+            this Meteor version does not need reloading for the data to refresh.
+
+          p.
+            You can take a look at the sources and post comments #[a(href='http://github.com/JanMP/books') on gitHub]
+
+template(name='messages')
+  .container-fluid
+    .row.equal
+      .col-log-12
+        .container
+          h1.page-header incoming messages:
+          div
+            each messages
+              if($eq recipientId currentUser._id)
+                +messageDisplay
+        .container
+          h1.page-header outgoing messages:
+          div
+            each messages
+              if($eq senderId currentUser._id)
+                +messageDisplay
+
+template(name='messageDisplay')
+  .col-lg-3.col-md-4.col-sm-6
+    .panel.panel-default.card.flex-col
+      if($eq recipientId currentUser._id)
+        .panel-heading
+          h3 Message from #{senderName}
+        .panel-body
+          if($eq status "requested")
+            p #{senderName} would like to borrow #{bookTitle} from you.
+          if($eq status "accepted")
+            p #{senderName} agrees to share #{bookTitle} with you.
+          if($eq status "denied")
+            p #{senderName} doesn't want to share #{bookTitle} with you.
+          if(text)
+            p Message: "#{text}"
+        .panel-footer
+          if($eq status "requested")
+            +afModal(formId="messageForm" class="btn btn-default" collection="Messages" operation="insert" doc=messageDocAccepted)
+              i.fa.fa-check
+              | &nbsp; accept
+            +afModal(formId="messageForm" class="btn btn-default" collection="Messages" operation="insert" doc=messageDocDenied)
+              i.fa.fa-times
+              | &nbsp; decline
+          else
+            +afModal(formId="messageForm" class="btn btn-default" collection="Messages" operation="remove" doc=this)
+              i.fa.fa-trash
+              | &nbsp; discard
+      if($eq senderId currentUser._id)
+        .panel-heading
+          h3 Message to #{recipientName}
+        .panel-body
+          if($eq status "requested")
+            p You told #{recipientName} that you would like to borrow #{bookTitle}.
+          if($eq status "accepted")
+            p You told #{recipientName} that you were happy to share #{bookTitle}.
+          if($eq status "denied")
+            p You screamed and shouted at #{recipientName}: "No, you cant have #{bookTitle}!"
+          if(text)
+            p Message: "#{text}"
+
+template(name='books')
+  .container-fluid
+    .row
+      .col-lg-12
+        h1.page-header books:
+          if mayAddBook
+            +afModal(formId="bookForm" class="btn btn-default pull-right" collection="Books" operation="insert")
+              i.fa.fa-plus
+              | &nbsp; add book
+        .row.row-flex.row-flex-wrap
+          each books
+            +bookDisplay
+
+template(name='bookDisplay')
+  .col-lg-3.col-md-4.col-sm-6
+    .panel.card(class=panelClass).flex-col
+      .panel-heading
+        h3 #{title}
+        h4 by #{author}
+      .panel-body
+        p shared by #{ownerName}
+        p status: #{status}
+      .flex-grow
+      .panel-footer
+        if mayDoNothing
+          p.
+           Sign in to access
+        if mayRequest
+          +afModal(formId="messageForm" class="btn btn-default" collection="Messages" operation="insert" doc=messageDoc)
+            //button.btn.btn-default.request-button
+            i.fa.fa-hand-pointer-o
+            | &nbsp; request
+        if mayEdit
+          +afModal(class="btn btn-default" collection="Books" operation="update" doc=this)
+            i.fa.fa-pencil
+            | &nbsp; edit
+        if mayEdit
+          +afModal(class="btn btn-default" collection="Books" operation="remove" doc=this)
+            i.fa.fa-trash
+            | &nbsp; delete
